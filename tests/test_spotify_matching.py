@@ -807,3 +807,28 @@ def test_cross_script_rescue_requires_isrc_and_valid_recording_evidence(monkeypa
 
     candidate.pop("external_ids", None)
     assert run_search(monkeypatch, "都会", ["大貫妙子"], "Sunshower", [candidate]) is None
+
+
+def test_trailing_feature_credit_is_accepted_when_artist_is_listed(monkeypatch):
+    for suffix in ["feat. Tamala", "ft Tamala", "featuring Tamala"]:
+        candidate = track(f"feature-{suffix}", "Only Tonight", ["Kenichiro Nishihara", "Tamala"], "empath")
+        assert run_search(
+            monkeypatch, f"Only Tonight {suffix}", ["西原健一郎", "Tamala"], "empath", [candidate]
+        ) == f"feature-{suffix}"
+
+
+def test_feature_credit_requires_candidate_feature_artist(monkeypatch):
+    candidate = track("missing-feature", "Only Tonight", ["Kenichiro Nishihara"], "empath")
+    assert run_search(
+        monkeypatch, "Only Tonight feat. Tamala", ["西原健一郎", "Tamala"], "empath", [candidate]
+    ) is None
+
+
+def test_feature_credit_does_not_override_version_or_artist_conflict(monkeypatch):
+    cases = [
+        ("Only Tonight feat. Tamala", ["Kenichiro Nishihara", "Tamala"], "Only Tonight - Live"),
+        ("Song feat. Artist A", ["Completely Different Artist"], "Song"),
+    ]
+    for source, candidate_artists, candidate_title in cases:
+        candidate = track("rejected", candidate_title, candidate_artists, "Album")
+        assert run_search(monkeypatch, source, ["Source Artist", "Tamala"], "Album", [candidate]) is None

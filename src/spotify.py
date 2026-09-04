@@ -262,6 +262,25 @@ def _title_match(source: str, candidate: str) -> bool:
     return False
 
 
+def _feature_title_match(source: str, candidate: str, candidate_artists: list[dict]) -> bool:
+    match = re.search(r"\s+(?:feat\.?|ft\.?|featuring)\s+(.+?)\s*$", source, re.IGNORECASE)
+    if not match:
+        return False
+    credited_names = {
+        _normalize_text(value.strip())
+        for value in re.split(r"\s*(?:,|&|、|/|and)\s*", match.group(1), flags=re.IGNORECASE)
+        if value.strip()
+    }
+    spotify_names = {
+        _normalize_text(value.get("name", ""))
+        for value in candidate_artists
+        if value.get("name")
+    }
+    if not credited_names & spotify_names:
+        return False
+    return _title_match(source[:match.start()].rstrip(), candidate)
+
+
 def _cjk_title_status(source: str, candidate: str) -> str:
     return cjk_title_keys.title_status(source, candidate, _cjk_converter)
 
@@ -695,6 +714,11 @@ def search_track(
             version_reasons = _version_conflicts(
                 name, album, item_name, item_album_name
             )
+            if not title_matches and not version_reasons and _feature_title_match(
+                name, item_name, item_artists
+            ):
+                title_matches = True
+                reasons = [reason for reason in reasons if reason != "title mismatch"]
             cross_script_title_rescue = _cross_script_title_rescue_eligible(
                 name, item_name, version_reasons
             )

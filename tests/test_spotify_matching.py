@@ -832,3 +832,60 @@ def test_feature_credit_does_not_override_version_or_artist_conflict(monkeypatch
     for source, candidate_artists, candidate_title in cases:
         candidate = track("rejected", candidate_title, candidate_artists, "Album")
         assert run_search(monkeypatch, source, ["Source Artist", "Tamala"], "Album", [candidate]) is None
+
+
+def test_soundtrack_attribution_suffix_is_compatible(monkeypatch):
+    cases = [
+        (
+            "More Than A Woman",
+            ["Bee Gees"],
+            "Saturday Night Fever (The Original Movie Soundtrack)",
+            'More Than A Woman - From "Saturday Night Fever" Soundtrack',
+            "Bee Gees",
+        ),
+        (
+            "Somewhere Out There",
+            ["Linda Ronstadt", "James Ingram"],
+            "The Very Best Of",
+            'Somewhere Out There - From "An American Tail" Soundtrack',
+            "Linda Ronstadt",
+        ),
+    ]
+    for title, artists, album, candidate_title, candidate_artist in cases:
+        assert run_search(
+            monkeypatch,
+            title,
+            artists,
+            album,
+            [track("soundtrack", candidate_title, [candidate_artist], "Soundtrack")],
+        ) == "soundtrack"
+
+
+def test_soundtrack_attribution_requires_matching_base_and_safe_candidate(monkeypatch):
+    cases = [
+        (
+            "More Than A Woman",
+            ["Bee Gees"],
+            'More Than A Woman - From "Saturday Night Fever" Soundtrack',
+            ["Other Artist"],
+        ),
+        (
+            "Song A",
+            ["Artist"],
+            'Song B - From "Film" Soundtrack',
+            ["Artist"],
+        ),
+        ("Song", ["Artist"], "Song - Live", ["Artist"]),
+        ("Song", ["Artist"], 'Song - From "Film" Soundtrack Remix', ["Artist"]),
+        ("Song", ["Artist"], "Song - Deluxe Edition", ["Artist"]),
+        ("Song", ["Artist"], "Song - Bonus Track", ["Artist"]),
+        ("Song", ["Artist"], "Song - Something Else", ["Artist"]),
+    ]
+    for source_title, artists, candidate_title, candidate_artists in cases:
+        assert run_search(
+            monkeypatch,
+            source_title,
+            artists,
+            "Album",
+            [track("rejected", candidate_title, candidate_artists, "Album")],
+        ) is None

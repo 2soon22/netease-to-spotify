@@ -281,6 +281,15 @@ def _feature_title_match(source: str, candidate: str, candidate_artists: list[di
     return _title_match(source[:match.start()].rstrip(), candidate)
 
 
+def _soundtrack_title_match(source: str, candidate: str) -> bool:
+    match = re.search(
+        r'\s+-\s+from\s+["“](.+?)["”]\s+soundtrack\s*$',
+        candidate,
+        re.IGNORECASE,
+    )
+    return bool(match and _title_match(source, candidate[:match.start()].rstrip()))
+
+
 def _cjk_title_status(source: str, candidate: str) -> str:
     return cjk_title_keys.title_status(source, candidate, _cjk_converter)
 
@@ -716,6 +725,11 @@ def search_track(
             )
             if not title_matches and not version_reasons and _feature_title_match(
                 name, item_name, item_artists
+            ):
+                title_matches = True
+                reasons = [reason for reason in reasons if reason != "title mismatch"]
+            if not title_matches and not version_reasons and _soundtrack_title_match(
+                name, item_name
             ):
                 title_matches = True
                 reasons = [reason for reason in reasons if reason != "title mismatch"]

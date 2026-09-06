@@ -815,12 +815,15 @@ def search_track(
             ) or (
                 cross_script_title_rescue
                 and not baseline_accept
-                and artist_score == 0.35
-                and not artist_reliable
+                and (
+                    (artist_score == 0.35 and not artist_reliable)
+                    or (artist_score > 0 and artist_reliable)
+                )
             )
             if fallback_eligible:
-                artist_identity_supported = _musicbrainz_artist_identity_supported(
-                    artists, item
+                artist_identity_supported = (
+                    artist_reliable
+                    or _musicbrainz_artist_identity_supported(artists, item)
                 )
                 if artist_identity_supported:
                     print(

@@ -785,6 +785,33 @@ def test_cross_script_rescue_requires_musicbrainz_recording_evidence(monkeypatch
     assert run_search(monkeypatch, "都会", ["大貫妙子"], "Sunshower", [candidate]) is None
 
 
+def test_exact_artist_cross_script_title_reaches_recording_verification(monkeypatch):
+    candidate = track("wasurerumaeni", "wasurerumaeni", ["Vaundy"], "Album")
+    candidate.update({"external_ids": {"isrc": "JP-TEST"}, "duration_ms": 200000})
+    recording_calls = []
+    monkeypatch.setattr(spotify, "_musicbrainz_artist_identity", lambda *_args: {"vaundy-mbid"})
+    monkeypatch.setattr(
+        spotify,
+        "_musicbrainz_recordings_for_isrc",
+        lambda isrc: recording_calls.append(isrc) or [{
+            "id": "recording",
+            "title": "忘れる前に",
+            "length": 200000,
+            "artist-credit": [{"artist": {"id": "vaundy-mbid"}}],
+            "disambiguation": "",
+        }],
+    )
+    assert run_search(monkeypatch, "忘れる前に", ["Vaundy"], "Album", [candidate]) == "wasurerumaeni"
+    assert recording_calls == ["JP-TEST"]
+
+
+def test_exact_artist_cross_script_title_without_recording_stays_rejected(monkeypatch):
+    candidate = track("wasurerumaeni", "wasurerumaeni", ["Vaundy"], "Album")
+    candidate["external_ids"] = {"isrc": "JP-TEST"}
+    monkeypatch.setattr(spotify, "_musicbrainz_recordings_for_isrc", lambda _isrc: [])
+    assert run_search(monkeypatch, "忘れる前に", ["Vaundy"], "Album", [candidate]) is None
+
+
 def test_cross_script_rescue_does_not_override_version_conflict(monkeypatch):
     candidate = track("tokai-live", "Tokai - Live", ["Taeko Onuki"], "SUNSHOWER")
     candidate.update({"external_ids": {"isrc": "JPCR07700360"}, "duration_ms": 310173})

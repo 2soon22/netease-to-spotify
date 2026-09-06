@@ -32,6 +32,7 @@ def main() -> None:
             _is_japanese(artist) for artist in song["artists"]
         )
         japanese_total += int(japanese)
+        diagnostics = {}
         try:
             track_id = search_track(
                 access_token,
@@ -39,6 +40,7 @@ def main() -> None:
                 song["artists"],
                 song.get("album", ""),
                 duration_ms=song.get("duration_ms"),
+                diagnostics=diagnostics,
             )
         except SpotifyRateLimitError:
             raise
@@ -47,11 +49,14 @@ def main() -> None:
             matched += 1
             japanese_matched += int(japanese)
 
-        results.append({
+        result = {
             "netease": song,
             "matched": bool(track_id),
             "spotify_track_id": track_id,
-        })
+        }
+        if not track_id:
+            result["diagnostics"] = diagnostics
+        results.append(result)
 
     total = len(songs)
     report = {

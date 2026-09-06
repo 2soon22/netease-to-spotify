@@ -650,17 +650,43 @@ def _cross_script_title_rescue_eligible(
     )
 
 
+def _diagnostic_category(reasons: list[str]) -> str:
+    reason_set = set(reasons)
+    if "version conflict" in reason_set or any("version mismatch" in reason for reason in reason_set):
+        return "VERSION_CONFLICT"
+    has_title = "title mismatch" in reason_set
+    has_artist = "artist mismatch" in reason_set or "artist not sufficiently corroborated" in reason_set
+    if has_title and has_artist:
+        return "TITLE_AND_ARTIST_CONFLICT"
+    if has_title:
+        return "TITLE_CONFLICT"
+    if has_artist:
+        return "ARTIST_CONFLICT"
+    return "INSUFFICIENT_EVIDENCE"
+
+
 def search_track(
     access_token: str,
     name: str,
     artists: list[str],
     album: str = "",
     duration_ms: int | None = None,
+    *,
+    diagnostics: dict | None = None,
 ) -> str | None:
     """Find the most reliable candidate using two bounded searches."""
     if not name or not artists:
         print(f"Not found: {name} - missing artist metadata")
         return None
+    if diagnostics is not None:
+        diagnostics.update({
+            "spotify_search_requests": 0,
+            "candidates_returned": 0,
+            "search_failures": 0,
+            "category": None,
+            "representative_rejected_candidate": None,
+            "signals": [],
+        })
 
     artist = artists[0]
     queries = [
@@ -674,17 +700,23 @@ def search_track(
     for query_index, query in enumerate(queries, start=1):
         print(f"Spotify search query {query_index}/2: {query}")
         requests_sent += 1
+        if diagnostics is not None:
+            diagnostics["spotify_search_requests"] = requests_sent
         response = _spotify_get(
             f"{SPOTIFY_API_URL}/search",
             access_token,
             {"q": query, "type": "track", "limit": 10},
         )
         if response is None:
+            if diagnostics is not None:
+                diagnostics["search_failures"] += 1
             print(f"Search request {requests_sent} skipped or failed.")
             continue
 
         items = response.json().get("tracks", {}).get("items", [])
         print(f"Search result: {len(items)} candidates")
+        if diagnostics is not None:
+            diagnostics["candidates_returned"] += len(items)
         for item in items:
             item_id = item.get("id")
             item_name = item.get("name", "")
@@ -823,6 +855,25 @@ def search_track(
             reasons.extend(version_reasons)
 
             if reasons:
+                if diagnostics is not None:
+                    if diagnostics["representative_rejected_candidate"] is None:
+                        diagnostics["representative_rejected_candidate"] = {
+                            "spotify_track_id": item_id,
+                            "title": item_name,
+                            "artists": [value.get("name", "") for value in item_artists],
+                            "album": item_album_name,
+                            "isrc": spotify_isrc,
+                            "reasons": list(dict.fromkeys(reasons)),
+                        }
+                    category = _diagnostic_category(reasons)
+                    diagnostics.setdefault("_categories", set()).add(category)
+                    if _contains_cjk(name) and not _contains_cjk(item_name) and not _contains_kana(item_name):
+                        if "POSSIBLE_CROSS_SCRIPT_TITLE" not in diagnostics["signals"]:
+                            diagnostics["signals"].append("POSSIBLE_CROSS_SCRIPT_TITLE")
+                    source_asian = any(_contains_cjk(value) or _contains_kana(value) for value in artists)
+                    candidate_asian = any(_contains_cjk(value.get("name", "")) or _contains_kana(value.get("name", "")) for value in item_artists)
+                    if source_asian and not candidate_asian and "POSSIBLE_CROSS_SCRIPT_ARTIST" not in diagnostics["signals"]:
+                        diagnostics["signals"].append("POSSIBLE_CROSS_SCRIPT_ARTIST")
                 print(
                     f"Rejected candidate: {item_name} - "
                     f"{', '.join(value.get('name', '') for value in item_artists)} - "
@@ -869,10 +920,21 @@ def search_track(
 
     print(f"Spotify search requests sent: {requests_sent}")
     if not candidates:
+        if diagnostics is not None:
+            categories = diagnostics.pop("_categories", set())
+            diagnostics["category"] = (
+                "NO_CANDIDATES_RETURNED"
+                if not diagnostics["candidates_returned"] and not diagnostics["search_failures"]
+                else "OTHER"
+                if not diagnostics["candidates_returned"]
+                else next(iter(sorted(categories)), "CANDIDATES_REJECTED")
+            )
         print(f"Not found: {name} - no sufficiently reliable candidate")
         return None
 
     score, item = max(candidates.values(), key=lambda value: value[0])
+    if diagnostics is not None:
+        diagnostics.pop("_categories", None)
     item_artists = ", ".join(
         value.get("name", "") for value in item.get("artists", [])
     )

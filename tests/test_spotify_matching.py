@@ -23,6 +23,21 @@ def run_search(monkeypatch, source_title, source_artists, source_album, items):
     )
 
 
+def run_search_with_diagnostics(monkeypatch, source_title, source_artists, source_album, items):
+    monkeypatch.setattr(
+        spotify,
+        "_spotify_get",
+        lambda *_args, **_kwargs: FakeResponse(items),
+    )
+    diagnostics = {}
+    result = spotify.search_track(
+        "test-token",
+        source_title,
+        source_artists,
+        source_album,
+        diagnostics=diagnostics,
+    )
+    return result, diagnostics
 def track(track_id, name, artists, album):
     return {
         "id": track_id,
@@ -889,3 +904,58 @@ def test_soundtrack_attribution_requires_matching_base_and_safe_candidate(monkey
             "Album",
             [track("rejected", candidate_title, candidate_artists, "Album")],
         ) is None
+
+
+def test_diagnostics_report_title_conflict(monkeypatch):
+    result, diagnostics = run_search_with_diagnostics(
+        monkeypatch, "Song", ["Artist"], "Album",
+        [track("wrong", "Other Song", ["Artist"], "Album")],
+    )
+    assert result is None
+    assert diagnostics["category"] == "TITLE_CONFLICT"
+    assert diagnostics["candidates_returned"] == 1
+    assert diagnostics["representative_rejected_candidate"]["spotify_track_id"] == "wrong"
+
+
+def test_diagnostics_report_zero_candidates(monkeypatch):
+    result, diagnostics = run_search_with_diagnostics(
+        monkeypatch, "Song", ["Artist"], "Album", [],
+    )
+    assert result is None
+    assert diagnostics["category"] == "NO_CANDIDATES_RETURNED"
+    assert diagnostics["candidates_returned"] == 0
+
+
+def test_diagnostics_report_artist_and_version_conflicts(monkeypatch):
+    result, diagnostics = run_search_with_diagnostics(
+        monkeypatch, "Song", ["Artist"], "Album",
+        [track("wrong-artist", "Song", ["Other Artist"], "Album")],
+    )
+    assert result is None
+    assert diagnostics["category"] == "ARTIST_CONFLICT"
+
+    result, diagnostics = run_search_with_diagnostics(
+        monkeypatch, "Song", ["Artist"], "Album",
+        [track("live", "Song - Live", ["Artist"], "Album")],
+    )
+    assert result is None
+    assert diagnostics["category"] == "VERSION_CONFLICT"
+
+
+def test_diagnostics_cross_script_signals_are_observations_only(monkeypatch):
+    result, diagnostics = run_search_with_diagnostics(
+        monkeypatch, "送行 Send-off", ["顾忠山"], "清晰 Clarity",
+        [track("send-off", "Send-off", ["Lawrence Ku"], "Clarity")],
+    )
+    assert result is None
+    assert "POSSIBLE_CROSS_SCRIPT_TITLE" in diagnostics["signals"]
+    assert "POSSIBLE_CROSS_SCRIPT_ARTIST" in diagnostics["signals"]
+
+
+def test_diagnostics_add_no_search_requests_or_change_match(monkeypatch):
+    result, diagnostics = run_search_with_diagnostics(
+        monkeypatch, "Song", ["Artist"], "Album",
+        [track("song", "Song", ["Artist"], "Album")],
+    )
+    assert result == "song"
+    assert diagnostics["spotify_search_requests"] == 1

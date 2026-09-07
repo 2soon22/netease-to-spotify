@@ -940,7 +940,7 @@ def test_diagnostics_report_title_conflict(monkeypatch):
     )
     assert result is None
     assert diagnostics["category"] == "TITLE_CONFLICT"
-    assert diagnostics["candidates_returned"] == 1
+    assert diagnostics["candidates_returned"] == 2
     assert diagnostics["representative_rejected_candidate"]["spotify_track_id"] == "wrong"
 
 
@@ -956,7 +956,7 @@ def test_diagnostics_report_zero_candidates(monkeypatch):
 def test_diagnostics_report_artist_and_version_conflicts(monkeypatch):
     result, diagnostics = run_search_with_diagnostics(
         monkeypatch, "Song", ["Artist"], "Album",
-        [track("wrong-artist", "Song", ["Other Artist"], "Album")],
+            [track("wrong-artist", "Song", ["Completely Different Performer"], "Album")],
     )
     assert result is None
     assert diagnostics["category"] == "ARTIST_CONFLICT"

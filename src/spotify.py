@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 import difflib
 import re
 import time
@@ -158,32 +158,32 @@ def _normalize_text(value: str) -> str:
     """Normalize text while ignoring punctuation and presentation differences."""
     normalized = unicodedata.normalize("NFKC", value).casefold()
     normalized = normalized.replace("&", "and")
-    normalized = normalized.translate(str.maketrans({"闂?: "闁?}))
+    normalized = normalized.translate(str.maketrans({"间": "間"}))
     return "".join(character for character in normalized if character.isalnum())
 
 
 ARTIST_ALIASES = {
-    "涔呯煶璀?: ["Joe Hisaishi"],
-    "灞变笅閬旈儙": ["Tatsuro Yamashita"],
-    "绔瑰唴銇俱倞銈?: ["Mariya Takeuchi"],
-    "娓呭淇′篃": ["Shinya Kiyozuka"],
+    "久石譲": ["Joe Hisaishi"],
+    "山下達郎": ["Tatsuro Yamashita"],
+    "竹内まりや": ["Mariya Takeuchi"],
+    "清塚信也": ["Shinya Kiyozuka"],
     "NAOTO": ["Naoto"],
     "CAGNET": ["Cagnet"],
-    "钘や簳棰?: ["Fujii Kaze"],
-    "鍚夌敯缇庡瀛?: ["Minako Yoshida"],
-    "銉栥儸銉冦儔&銉愩偪銉?: ["Bread And Butter"],
-    "鏋椼倖銇嗐亶": ["Yuki Hayashi"],
-    "瀹囧鐢般儝銈儷": ["Hikaru Utada"],
-    "銉┿兓銉犮兗": ["RA MU"],
-    "鏉戠敯鍜屼汉": ["Kazuhito Murata"],
-    "涓師銈併亜銇?: ["Meiko Nakahara"],
-    "鏉句笅瑾?: ["Makoto Matsushita"],
-    "绂忓師缇庣﹤": ["Miho Fukuhara"],
+    "藤井風": ["Fujii Kaze"],
+    "吉田美奈子": ["Minako Yoshida"],
+    "ブレッド&バター": ["Bread And Butter"],
+    "林ゆうき": ["Yuki Hayashi"],
+    "宇多田ヒカル": ["Hikaru Utada"],
+    "ラ・ムー": ["RA MU"],
+    "村田和人": ["Kazuhito Murata"],
+    "中原めいこ": ["Meiko Nakahara"],
+    "松下誠": ["Makoto Matsushita"],
+    "福原美穂": ["Miho Fukuhara"],
 }
 
 TITLE_ALIASES = {
-    "銉炪偆銉汇儥銈ゃ儞銉笺兓銈偆銉笺兂": ["My Baby Queen"],
-    "銉堛偉銉兗銉汇儓銈ャ兓銉︺偄銉汇儚銉笺儓(銈儯銈般儘銉冦儓)": [
+    "マイ・ベイビー・クイーン": ["My Baby Queen"],
+    "トゥルー・トゥ・ユア・ハート(キャグネット)": [
         "True to Your Heart",
         "True to Your Heart (From Mulan)",
     ],
@@ -223,7 +223,7 @@ def _title_core(value: str) -> str:
         normalized,
     )
     normalized = re.sub(
-        r'\s*-\s*from\s+["鈥溾€漖[^"鈥溾€漖+["鈥溾€漖\s*$',
+        r'\s*-\s*from\s+["“”][^"“”]+["“”]\s*$',
         "",
         normalized,
     )
@@ -270,7 +270,7 @@ def _feature_title_match(source: str, candidate: str, candidate_artists: list[di
         return False
     credited_names = {
         _normalize_text(value.strip())
-        for value in re.split(r"\s*(?:,|&|銆亅/|and)\s*", match.group(1), flags=re.IGNORECASE)
+        for value in re.split(r"\s*(?:,|&|、|/|and)\s*", match.group(1), flags=re.IGNORECASE)
         if value.strip()
     }
     spotify_names = {
@@ -285,7 +285,7 @@ def _feature_title_match(source: str, candidate: str, candidate_artists: list[di
 
 def _soundtrack_title_match(source: str, candidate: str) -> bool:
     match = re.search(
-        r'\s+-\s+from\s+["鈥淽(.+?)["鈥漖\s+soundtrack\s*$',
+        r'\s+-\s+from\s+["“](.+?)["”]\s+soundtrack\s*$',
         candidate,
         re.IGNORECASE,
     )
@@ -969,8 +969,6 @@ def replace_playlist_tracks(
     )
 
     print("Spotify playlist clear status:", response.status_code)
-    print("Spotify playlist clear response:", response.text)
-    print("Spotify playlist clear headers:", dict(response.headers))
     response.raise_for_status()
 
     print("Cleared existing Spotify playlist tracks.")

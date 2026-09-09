@@ -692,7 +692,7 @@ def search_track(
     queries = [
         f'track:"{name}" artist:"{artist}"'
         + (f' album:"{album}"' if album else ""),
-        f"{name} {artist}".strip(),
+        f'track:"{name}" artist:"{artist}"',
     ]
     candidates = {}
     requests_sent = 0

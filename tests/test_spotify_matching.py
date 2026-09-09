@@ -255,6 +255,33 @@ def test_search_stays_bounded_at_two_queries(monkeypatch):
     assert len(calls) <= 2
 
 
+def test_search_queries_keep_structured_field_semantics(monkeypatch):
+    queries = []
+
+    def fake_get(*_args, **kwargs):
+        queries.append(kwargs["params"]["q"])
+        return FakeResponse([])
+
+    monkeypatch.setattr(spotify, "_spotify_get", fake_get)
+    assert spotify.search_track("test-token", "Song", ["Artist"], "Album") is None
+    assert queries == [
+        'track:"Song" artist:"Artist" album:"Album"',
+        'track:"Song" artist:"Artist"',
+    ]
+
+
+def test_first_search_success_does_not_send_second_query(monkeypatch):
+    queries = []
+
+    def fake_get(*_args, **kwargs):
+        queries.append(kwargs["params"]["q"])
+        return FakeResponse([track("song", "Song", ["Artist"], "Album")])
+
+    monkeypatch.setattr(spotify, "_spotify_get", fake_get)
+    assert spotify.search_track("test-token", "Song", ["Artist"], "Album") == "song"
+    assert queries == ['track:"Song" artist:"Artist" album:"Album"']
+
+
 def test_real_dry_run_artist_and_ost_variants(monkeypatch):
     cases = [
         ("中原めいこ", "Meiko Nakahara", "Track", "Album"),

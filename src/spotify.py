@@ -707,7 +707,7 @@ def search_track(
         response = _spotify_get(
             f"{SPOTIFY_API_URL}/search",
             access_token,
-            {"q": query, "type": "track", "limit": 10},
+           params={"q": query, "type": "track", "limit": 10},
         )
         if response is None:
             if diagnostics is not None:

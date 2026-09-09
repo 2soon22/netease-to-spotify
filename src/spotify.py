@@ -45,22 +45,23 @@ def get_access_token(
     client_secret: str,
     refresh_token: str,
 ) -> str:
-    """Use the refresh token to get a new Spotify access token."""
-    credentials = f"{client_id}:{client_secret}".encode()
-    encoded_credentials = base64.b64encode(credentials).decode()
+    """Use a PKCE refresh token to get a new Spotify access token."""
 
     response = requests.post(
         SPOTIFY_TOKEN_URL,
         headers={
-            "Authorization": f"Basic {encoded_credentials}",
             "Content-Type": "application/x-www-form-urlencoded",
         },
         data={
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
+            "client_id": client_id,
         },
         timeout=30,
     )
+
+    print("Spotify token response:", response.status_code, response.text)
+
     response.raise_for_status()
 
     data = response.json()
@@ -68,7 +69,9 @@ def get_access_token(
     print("Spotify token scopes:", data.get("scope"))
 
     if "access_token" not in data:
-        raise RuntimeError("Spotify did not return an access token.")
+        raise RuntimeError(
+            "Spotify did not return an access token."
+        )
 
     return data["access_token"]
 

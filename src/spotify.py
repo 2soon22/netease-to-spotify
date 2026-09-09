@@ -75,7 +75,6 @@ def get_access_token(
 
     return data["access_token"]
 
-
 def _spotify_get(
     url: str,
     access_token: str,

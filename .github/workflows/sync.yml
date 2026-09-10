@@ -24,7 +24,8 @@ jobs:
       - name: Test NetEase Personal FM
         env:
           NETEASE_COOKIE: ${{ secrets.NETEASE_COOKIE }}
-        run: python -c "import os; from src.netease import get_personal_fm; songs=get_personal_fm(os.environ['NETEASE_COOKIE']); print(f'Personal FM test succeeded: {len(songs)} songs')"
+        run: |
+          python -c "import os; from src.netease import get_personal_fm; songs=get_personal_fm(os.environ['NETEASE_COOKIE']); print('Personal FM test succeeded:', len(songs), 'songs')"
 
   sync:
     runs-on: ubuntu-latest

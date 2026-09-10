@@ -135,6 +135,79 @@ def _get_duration_ms(song: dict) -> int | None:
     return duration_ms if duration_ms > 0 else None
 
 
+def get_personal_fm(cookie: str) -> list[dict]:
+    """获取网易云音乐：私人漫游（私人 FM）。"""
+    csrf_token = _get_csrf_token(cookie)
+
+    payload = {
+        "csrf_token": csrf_token,
+    }
+
+    encrypted = _encrypt_request(payload)
+
+    headers = {
+        "Cookie": cookie,
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/131.0.0.0 Safari/537.36"
+        ),
+        "Referer": "https://music.163.com/",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    response = requests.post(
+        "https://music.163.com/weapi/v1/radio/get",
+        params={"csrf_token": csrf_token},
+        data=encrypted,
+        headers=headers,
+        timeout=30,
+    )
+
+    response.raise_for_status()
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise RuntimeError(
+            f"NetEase returned non-JSON response: {response.text[:500]}"
+        ) from exc
+
+    if data.get("code") != 200:
+        raise RuntimeError(
+            f"NetEase Personal FM API returned code {data.get('code')}: "
+            f"{data.get('message', data.get('msg', 'unknown error'))}"
+        )
+
+    songs = data.get("data", [])
+
+    if not songs:
+        raise RuntimeError(
+            "NetEase returned 0 Personal FM songs. "
+            "The cookie may be expired or invalid."
+        )
+
+    print("\\n===== NetEase Personal FM =====")
+
+    for index, song in enumerate(songs, start=1):
+        name = song.get("name", "")
+        artists = ", ".join(_get_artist_names(song))
+        print(f"{index:02d}. {name} - {artists}")
+
+    print("================================")
+    print(f"Found {len(songs)} NetEase Personal FM songs.\\n")
+
+    return [
+        {
+            "name": song.get("name", ""),
+            "artists": _get_artist_names(song),
+            "album": song.get("al", {}).get("name", "") or song.get("album", {}).get("name", ""),
+            "duration_ms": _get_duration_ms(song),
+        }
+        for song in songs
+    ]
+
+
 def get_daily_recommendations(cookie: str) -> list[dict]:
     """
     获取网易云音乐：

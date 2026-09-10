@@ -1,7 +1,7 @@
 import requests
 
 from src.config import load_settings
-from src.netease import get_daily_recommendations
+from src.netease import get_daily_recommendations, get_personal_fm
 from src.spotify import (
     add_tracks_to_playlist,
     get_access_token,
@@ -52,6 +52,10 @@ def main() -> None:
     print("Getting NetEase daily recommendations...")
     songs = get_daily_recommendations(settings.netease_cookie)
     print(f"Found {len(songs)} NetEase daily recommendations.")
+
+    print("Getting NetEase Personal FM...")
+    personal_fm_songs = get_personal_fm(settings.netease_cookie)
+    print(f"Found {len(personal_fm_songs)} NetEase Personal FM songs.")
 
     if not songs:
         raise RuntimeError(
@@ -122,6 +126,60 @@ def main() -> None:
         f"Added {len(track_ids)} tracks to Spotify playlist."
     )
 
+    personal_fm_track_ids = []
+    personal_fm_seen_track_ids = set()
+
+    print("Matching NetEase Personal FM to Spotify...")
+    try:
+        for song in personal_fm_songs:
+            track_id = search_track(
+                access_token,
+                song["name"],
+                song["artists"],
+                song.get("album", ""),
+                duration_ms=song.get("duration_ms"),
+            )
+
+            if track_id and track_id not in personal_fm_seen_track_ids:
+                personal_fm_seen_track_ids.add(track_id)
+                personal_fm_track_ids.append(track_id)
+                print(
+                    f"Personal FM matched: {song['name']} - "
+                    f"{', '.join(song['artists'])}"
+                )
+            else:
+                print(
+                    f"Personal FM not found: {song['name']} - "
+                    f"{', '.join(song['artists'])}"
+                )
+    except SpotifyRateLimitError as error:
+        raise RuntimeError(str(error)) from error
+
+    print(f"Matched {len(personal_fm_track_ids)} Personal FM tracks.")
+
+    if personal_fm_track_ids:
+        replace_playlist_tracks(
+            access_token,
+            settings.spotify_personal_fm_playlist_id,
+        )
+
+        add_tracks_to_playlist(
+            access_token,
+            settings.spotify_personal_fm_playlist_id,
+            personal_fm_track_ids,
+        )
+
+        print(
+            f"Added {len(personal_fm_track_ids)} Personal FM tracks "
+            f"to Spotify playlist."
+        )
+    else:
+        print(
+            "No Personal FM tracks matched Spotify. "
+            "Keeping existing Personal FM playlist."
+        )
+
 
 if __name__ == "__main__":
     main()
+

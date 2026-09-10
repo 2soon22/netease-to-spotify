@@ -691,14 +691,10 @@ def search_track(
         })
 
     artist = artists[0]
-    clean_name = re.sub(r'\\s*[---:]\\s*(feat\\.?|ft\\.?|with)\\s+.*$', '', name, flags=re.IGNORECASE).strip()
-    clean_name = re.sub(r'\\s*\\([^)]*\\)', '', clean_name).strip()
     queries = [
         f'track:"{name}" artist:"{artist}"'
         + (f' album:"{album}"' if album else ""),
         f'track:"{name}" artist:"{artist}"',
-        f'track:"{clean_name}" artist:"{artist}"',
-        f'track:"{clean_name}"',
     ]
     candidates = {}
     requests_sent = 0

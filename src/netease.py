@@ -136,14 +136,11 @@ def _get_duration_ms(song: dict) -> int | None:
 
 
 def get_personal_fm(cookie: str) -> list[dict]:
-    """获取网易云音乐：私人漫游（私人 FM）。"""
     csrf_token = _get_csrf_token(cookie)
 
     payload = {
         "csrf_token": csrf_token,
     }
-
-    encrypted = _encrypt_request(payload)
 
     headers = {
         "Cookie": cookie,
@@ -156,52 +153,88 @@ def get_personal_fm(cookie: str) -> list[dict]:
         "Content-Type": "application/x-www-form-urlencoded",
     }
 
-    response = requests.post(
-        "https://music.163.com/weapi/v1/radio/get",
-        params={"csrf_token": csrf_token},
-        data=encrypted,
-        headers=headers,
-        timeout=30,
-    )
+    target_count = 60
+    max_requests = 25
+    all_songs = []
+    seen = set()
 
-    response.raise_for_status()
+    for attempt in range(max_requests):
+        encrypted = _encrypt_request(payload)
 
-    try:
+        response = requests.post(
+            "https://music.163.com/weapi/v1/radio/get",
+            params={"csrf_token": csrf_token},
+            data=encrypted,
+            headers=headers,
+            timeout=30,
+        )
+
+        response.raise_for_status()
         data = response.json()
-    except ValueError as exc:
-        raise RuntimeError(
-            f"NetEase returned non-JSON response: {response.text[:500]}"
-        ) from exc
 
-    if data.get("code") != 200:
-        raise RuntimeError(
-            f"NetEase Personal FM API returned code {data.get('code')}: "
-            f"{data.get('message', data.get('msg', 'unknown error'))}"
+        if data.get("code") != 200:
+            raise RuntimeError(
+                f"NetEase Personal FM API returned code {data.get('code')}: "
+                f"{data.get('message') or data.get('msg') or 'unknown error'}"
+            )
+
+        batch = data.get("data", [])
+
+        if not batch:
+            break
+
+        added_this_round = 0
+
+        for song in batch:
+            song_id = song.get("id")
+
+            if song_id:
+                key = ("id", str(song_id))
+            else:
+                key = (
+                    "meta",
+                    song.get("name", ""),
+                    tuple(_get_artist_names(song)),
+                    song.get("dt")
+                    or song.get("duration_ms")
+                    or song.get("duration"),
+                )
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            all_songs.append(song)
+            added_this_round += 1
+
+            if len(all_songs) >= target_count:
+                break
+
+        print(
+            f"Personal FM request {attempt + 1}/{max_requests}: "
+            f"received {len(batch)}, added {added_this_round}, "
+            f"total unique {len(all_songs)}"
         )
 
-    songs = data.get("data", [])
+        if len(all_songs) >= target_count:
+            break
 
-    if not songs:
-        raise RuntimeError(
-            "NetEase returned 0 Personal FM songs. "
-            "The cookie may be expired or invalid."
-        )
+        if added_this_round == 0:
+            break
 
-    print("\\n===== NetEase Personal FM =====")
+    if not all_songs:
+        raise RuntimeError("NetEase Personal FM returned no songs.")
 
-    for index, song in enumerate(songs, start=1):
-        name = song.get("name", "")
-        artists = ", ".join(_get_artist_names(song))
-        print(f"{index:02d}. {name} - {artists}")
+    songs = all_songs[:target_count]
 
-    print("================================")
-    print(f"Found {len(songs)} NetEase Personal FM songs.\\n")
+    print(f"Fetched {len(songs)} unique Personal FM songs from NetEase.")
 
     return [
         {
             "name": song.get("name", ""),
             "artists": _get_artist_names(song),
-            "album": song.get("al", {}).get("name", "") or song.get("album", {}).get("name", ""),
+            "album": song.get("al", {}).get("name", "")
+            or song.get("album", {}).get("name", ""),
             "duration_ms": _get_duration_ms(song),
         }
         for song in songs

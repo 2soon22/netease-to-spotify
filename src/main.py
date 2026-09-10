@@ -77,6 +77,7 @@ def main() -> None:
 
     track_ids = []
     seen_track_ids = set()
+    spotify_rate_limited = False
 
     try:
         for song in songs:
@@ -101,11 +102,15 @@ def main() -> None:
                     f"{', '.join(song['artists'])}"
                 )
     except SpotifyRateLimitError as error:
-        raise RuntimeError(str(error)) from error
+        spotify_rate_limited = True
+        print(f"Spotify rate limit reached; stopping further Spotify searches: {error}")
 
     print(f"Matched {len(track_ids)} tracks.")
 
     if not track_ids:
+        if spotify_rate_limited:
+            print("No daily matches before Spotify rate limit; keeping existing playlist.")
+            return
         raise RuntimeError(
             "No NetEase recommendations matched valid Spotify tracks. "
             "Keeping the existing Spotify playlist."
@@ -125,6 +130,10 @@ def main() -> None:
     print(
         f"Added {len(track_ids)} tracks to Spotify playlist."
     )
+
+    if spotify_rate_limited:
+        print("Spotify rate limit stopped further searches; keeping Personal FM playlist unchanged.")
+        return
 
     personal_fm_track_ids = []
     personal_fm_seen_track_ids = set()
@@ -153,7 +162,7 @@ def main() -> None:
                     f"{', '.join(song['artists'])}"
                 )
     except SpotifyRateLimitError as error:
-        raise RuntimeError(str(error)) from error
+        print(f"Spotify rate limit reached during Personal FM matching; stopping searches: {error}")
 
     print(f"Matched {len(personal_fm_track_ids)} Personal FM tracks.")
 

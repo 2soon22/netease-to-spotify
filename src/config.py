@@ -8,6 +8,7 @@ class Settings:
     spotify_client_secret: str
     spotify_refresh_token: str
     spotify_playlist_id: str
+    spotify_personal_fm_playlist_id: str
     netease_cookie: str
 
 
@@ -16,6 +17,7 @@ REQUIRED_ENV_VARS = (
     "SPOTIFY_CLIENT_SECRET",
     "SPOTIFY_REFRESH_TOKEN",
     "SPOTIFY_PLAYLIST_ID",
+    "SPOTIFY_PERSONAL_FM_PLAYLIST_ID",
     "NETEASE_COOKIE",
 )
 
@@ -30,5 +32,6 @@ def load_settings() -> Settings:
         spotify_client_secret=os.environ["SPOTIFY_CLIENT_SECRET"],
         spotify_refresh_token=os.environ["SPOTIFY_REFRESH_TOKEN"],
         spotify_playlist_id=os.environ["SPOTIFY_PLAYLIST_ID"],
+        spotify_personal_fm_playlist_id=os.environ["SPOTIFY_PERSONAL_FM_PLAYLIST_ID"],
         netease_cookie=os.environ["NETEASE_COOKIE"],
     )

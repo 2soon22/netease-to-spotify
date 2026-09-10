@@ -158,16 +158,20 @@ def main() -> None:
     print(f"Matched {len(personal_fm_track_ids)} Personal FM tracks.")
 
     if personal_fm_track_ids:
-        replace_playlist_tracks(
-            access_token,
-            settings.spotify_personal_fm_playlist_id,
-        )
+        try:
+            replace_playlist_tracks(
+                access_token,
+                settings.spotify_personal_fm_playlist_id,
+            )
 
-        add_tracks_to_playlist(
-            access_token,
-            settings.spotify_personal_fm_playlist_id,
-            personal_fm_track_ids,
-        )
+            add_tracks_to_playlist(
+                access_token,
+                settings.spotify_personal_fm_playlist_id,
+                personal_fm_track_ids,
+            )
+        except Exception as error:
+            print(f'Personal FM Spotify update failed: {type(error).__name__}: {error}')
+            raise
 
         print(
             f"Added {len(personal_fm_track_ids)} Personal FM tracks "
